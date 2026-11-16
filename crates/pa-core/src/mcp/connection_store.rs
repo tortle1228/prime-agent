@@ -28,7 +28,8 @@ pub struct McpConnectionRecord {
     pub status: McpConnectionStatus,
     pub created_at: u64,
     pub updated_at: u64,
-    /// Epoch ms of the last successful handshake + tools/list.
+    /// Epoch ms of the last successful handshake + tools/list at this endpoint.
+    /// Retained across health-check failures as proof of the approved endpoint.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_at: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

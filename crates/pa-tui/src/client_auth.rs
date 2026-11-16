@@ -20,6 +20,9 @@ pub trait ClientAuthCommands: Send + Sync {
     /// (the flow's progress, URL block, and prompts render there).
     /// Resolves with the status line to show or the error to surface.
     fn login(&self, server: &str, panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture;
+    /// Verify an existing OAuth credential without opening the browser or replacing it.
+    /// Resolves with the verified status or an error to surface in the panel.
+    fn verify(&self, server: &str, panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture;
     /// The inline paste panel's client surface: prompt for one pasted
     /// static token, store it bound to the service endpoint, and verify.
     /// Resolves with the status line to show.
@@ -45,7 +48,7 @@ impl std::fmt::Debug for ClientAuthCommandsHandle {
     }
 }
 
-/// Run `/mcp login` / `/mcp key` / `/mcp logout` against the hook and
+/// Run MCP login, internal verification, key, or logout against the hook and
 /// return the note line to show (status, surfaced error, or the TS usage
 /// wording). Argument shapes and wording follow the TS interactive
 /// client's `handleMcpCommand` login/logout branches. The login, paste,
@@ -61,6 +64,10 @@ pub async fn run_mcp_auth_command(
     let server = parts.get(1).copied();
     match (sub, server, parts.len() == 2) {
         (Some("login"), Some(server), true) => match auth.login(server, panel).await {
+            Ok(status) => status,
+            Err(error) => format!("{error:#}"),
+        },
+        (Some("verify"), Some(server), true) => match auth.verify(server, panel).await {
             Ok(status) => status,
             Err(error) => format!("{error:#}"),
         },
@@ -111,6 +118,15 @@ mod tests {
     }
 
     impl ClientAuthCommands for ScriptedAuth {
+        fn verify(&self, server: &str, _panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture {
+            self.log
+                .lock()
+                .unwrap()
+                .push(("verify".to_string(), server.to_string()));
+            let answer = format!("Verified {server}.");
+            Box::pin(async move { Ok(answer) })
+        }
+
         fn login(&self, server: &str, _panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture {
             self.log
                 .lock()
@@ -160,6 +176,10 @@ mod tests {
     struct FailingAuth;
 
     impl ClientAuthCommands for FailingAuth {
+        fn verify(&self, _server: &str, _panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture {
+            Box::pin(async move { Err(anyhow::anyhow!("verification failed")) })
+        }
+
         fn login(&self, server: &str, _panel: crate::auth_panel::AuthPanelHandle) -> AuthFuture {
             let error = anyhow::anyhow!("Unknown MCP integration: {server}");
             Box::pin(async move { Err(error) })
@@ -186,6 +206,26 @@ mod tests {
         fn logout(&self, _server: &str) -> AuthFuture {
             Box::pin(async move { Err(anyhow::anyhow!("boom")) })
         }
+    }
+
+    #[tokio::test]
+    async fn verification_dispatch_does_not_login() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let auth = ScriptedAuth {
+            log: Arc::clone(&log),
+        };
+        assert_eq!(
+            run_mcp_auth_command(&auth, "verify notion", panel()).await,
+            "Verified notion."
+        );
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec![("verify".to_string(), "notion".to_string())]
+        );
+        assert_eq!(
+            run_mcp_auth_command(&FailingAuth, "verify notion", panel()).await,
+            "verification failed"
+        );
     }
 
     #[tokio::test]

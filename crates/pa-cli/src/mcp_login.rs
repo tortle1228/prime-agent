@@ -93,13 +93,13 @@ impl TerminalMcpAuth {
     /// Run one login against an injectable UI/transport (tests script the
     /// flow).
     async fn login_with(
-        &self,
+        manager: &McpManager,
         server: &str,
         ui: &dyn McpLoginUi,
         http: &dyn OAuthHttp,
     ) -> Result<String> {
         // Unknown and non-OAuth servers fail with the TS wording.
-        let context = self.manager().login_context(server)?;
+        let context = manager.login_context(server)?;
         context.run(ui, http).await?;
         // `Connected <name>.` (the skill gating resolves at the next
         // session build).
@@ -108,13 +108,18 @@ impl TerminalMcpAuth {
         ))
     }
 
+    async fn verify_inner(&self, server: &str) -> Result<String> {
+        self.manager().verification_context(server)?.run().await?;
+        Ok(format!("Connected {server}."))
+    }
+
     async fn login_inner(
         &self,
         server: &str,
         panel: pa_tui::auth_panel::AuthPanelHandle,
     ) -> Result<String> {
         let ui = PanelMcpLoginUi { panel };
-        self.login_with(server, &ui, &ReqwestOAuthHttp::new()).await
+        Self::login_with(&self.manager(), server, &ui, &ReqwestOAuthHttp::new()).await
     }
 
     /// The inline paste panel's flow: prompt for the ONE credential a pasteable
@@ -223,6 +228,11 @@ impl TerminalMcpAuth {
 }
 
 impl ClientAuthCommands for TerminalMcpAuth {
+    fn verify(&self, server: &str, _panel: pa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
+        let (auth, server) = (self.clone(), server.to_string());
+        Box::pin(async move { auth.verify_inner(&server).await })
+    }
+
     fn login(&self, server: &str, panel: pa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
         let (auth, server) = (self.clone(), server.to_string());
         Box::pin(async move { auth.login_inner(&server, panel).await })
@@ -452,17 +462,49 @@ mod tests {
         .expect("write settings.json");
     }
 
+    struct SuccessfulProbe;
+
+    impl pa_core::mcp::McpEndpointProbeImpl for SuccessfulProbe {
+        fn probe_dyn(
+            &self,
+            url: &str,
+            token: &str,
+        ) -> futures::future::BoxFuture<'static, Result<usize, &'static str>> {
+            assert_eq!(url, "https://fixture.example/mcp");
+            assert_eq!(token, "fixture-access");
+            Box::pin(async { Ok(1) })
+        }
+    }
+
     #[tokio::test]
     async fn login_persists_endpoint_bound_creds_and_reports_connected() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let agent_dir = dir.path().join("agent");
         settings_with_fixture_server(&agent_dir);
-        let auth = TerminalMcpAuth::new(dir.path().to_path_buf(), agent_dir.clone());
+        let settings: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(agent_dir.join("settings.json"))?)?;
+        let servers: HashMap<String, McpServerConfig> =
+            serde_json::from_value(settings["mcpServers"].clone())?;
+        let user_servers: pa_core::mcp::UserServersFn = Arc::new(move || Some(servers.clone()));
+        let manager = McpManager::new(McpManagerOptions {
+            auth_storage: AuthStorage::create_with_oauth(
+                &agent_dir,
+                Arc::new(pa_core::mcp::McpOAuth::new(Arc::clone(&user_servers))),
+            ),
+            get_user_servers: Box::new(move || user_servers()),
+            begin_login: None,
+            agent_dir: Some(agent_dir.clone()),
+            get_catalog_sources: None,
+            remote_source: None,
+            probe_override: Some(pa_core::mcp::McpEndpointProbe::new(Arc::new(
+                SuccessfulProbe,
+            ))),
+        });
         let http = ScriptedHttp::fixture();
         let ui = PasteUi {
             auth_url: Arc::new(std::sync::Mutex::new(String::new())),
         };
-        let status = auth.login_with("fixture", &ui, &http).await?;
+        let status = TerminalMcpAuth::login_with(&manager, "fixture", &ui, &http).await?;
         assert_eq!(
             status,
             "Connected fixture. Its skill activates in new sessions (/new)."
@@ -484,8 +526,7 @@ mod tests {
         );
         assert_eq!(stored["mcp:fixture"]["clientId"], "fixture-client");
 
-        let error = auth
-            .login_with("nope", &ui, &http)
+        let error = TerminalMcpAuth::login_with(&manager, "nope", &ui, &http)
             .await
             .unwrap_err()
             .to_string();

@@ -448,6 +448,21 @@ impl SessionUi {
                     title: format!("Login to {label}"),
                 });
             }
+            Some(crate::mcp_view::McpViewAction::Verify { server, label }) => {
+                view.mcp_view = None;
+                self.dirty = true;
+                // The Tab path's typed partial is fulfilled by the resolution; the
+                // browse-restore path holds the user's draft instead.
+                if self.picker_restored_draft {
+                    self.picker_restored_draft = false;
+                } else {
+                    view.editor.set_text("");
+                }
+                self.pending_mcp_auth = Some(McpAuthIntent {
+                    args: format!("verify {server}"),
+                    title: format!("Verify {label}"),
+                });
+            }
             Some(crate::mcp_view::McpViewAction::Paste { server, label }) => {
                 view.mcp_view = None;
                 self.dirty = true;

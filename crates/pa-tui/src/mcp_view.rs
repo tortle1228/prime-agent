@@ -4,8 +4,8 @@
 //! rows (the stored keys, e.g. the web-search key) over the daemon's
 //! `get_mcp_connections` response, with the TS picker's search bands,
 //! ONE fixed detail line, and the navigate/action/close hint. Enter runs
-//! the connection's login flow (TS `onSelect` -> `authenticate`) or the
-//! credential's paste-the-key prompt; Esc closes. The panel is the same
+//! login for an unconnected service, verifies an existing OAuth credential,
+//! or opens the credential's paste-the-key prompt; Esc closes. The panel is the same
 //! inline shape as the `/model` picker (the bordered search field over
 //! `›`-marker rows), and its frame is budgeted so the dock can never
 //! overflow the terminal (the detail line drops when the viewport is too
@@ -200,6 +200,8 @@ pub enum McpViewAction {
     /// Enter on a connectable connection/service: run its login flow (the caller resolves
     /// the auth hook; TS `authenticate`). `label` feeds the inline auth panel's title.
     Select { server: String, label: String },
+    /// Verify a pending or connected OAuth service with its stored credential, without login.
+    Verify { server: String, label: String },
     /// Enter on a pasteable token service with no installed account: open the paste flow
     /// ("paste token"). `label` feeds the panel's title.
     Paste { server: String, label: String },
@@ -345,6 +347,13 @@ impl McpView {
                 Some(McpRow::Credential(credential)) => McpViewAction::Key {
                     id: credential.id.clone(),
                     label: credential.label.clone(),
+                },
+                Some(McpRow::Service(service)) if service.wants_verify() => McpViewAction::Verify {
+                    server: service
+                        .connection_ids
+                        .first()
+                        .map_or_else(|| service.target().to_string(), Clone::clone),
+                    label: service.label.clone(),
                 },
                 Some(McpRow::Service(service)) if service.wants_paste() => McpViewAction::Paste {
                     server: service.target().to_string(),

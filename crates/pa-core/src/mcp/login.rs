@@ -19,6 +19,7 @@ pub struct McpLoginContext {
     server: String,
     config: McpOAuthConfig,
     auth_storage: Arc<tokio::sync::Mutex<AuthStorage>>,
+    verification: super::McpVerificationContext,
 }
 
 impl McpLoginContext {
@@ -28,6 +29,7 @@ impl McpLoginContext {
     ///
     /// Returns an error when the OAuth login flow fails or saving the
     /// credential fails.
+    #[tracing::instrument(skip_all)]
     pub async fn run(self, ui: &dyn McpLoginUi, http: &dyn OAuthHttp) -> Result<AuthCredential> {
         let provider_id = format!("mcp:{}", self.server);
         let credential = mcp_login(http, &self.config, ui).await?;
@@ -39,6 +41,8 @@ impl McpLoginContext {
         if let Some(error) = auth.drain_errors().pop() {
             return Err(anyhow!(error)).context("could not save login credentials");
         }
+        drop(auth);
+        self.verification.run().await?;
         Ok(credential)
     }
 }
@@ -92,6 +96,7 @@ impl McpManager {
             server: server.to_string(),
             config,
             auth_storage: self.auth_storage_handle(),
+            verification: self.verification_context(server)?,
         })
     }
 }
@@ -329,6 +334,18 @@ mod tests {
         }
     }
 
+    struct SuccessfulProbe;
+
+    impl super::super::probe::McpEndpointProbeImpl for SuccessfulProbe {
+        fn probe_dyn(
+            &self,
+            _url: &str,
+            _token: &str,
+        ) -> futures::future::BoxFuture<'static, super::super::probe::ProbeOutcome> {
+            Box::pin(async { Ok(2) })
+        }
+    }
+
     fn manager(
         agent_dir: &std::path::Path,
         user_servers: Option<HashMap<String, McpServerConfig>>,
@@ -345,7 +362,9 @@ mod tests {
             agent_dir: None,
             get_catalog_sources: None,
             remote_source: None,
-            probe_override: None,
+            probe_override: Some(super::super::probe::McpEndpointProbe::new(Arc::new(
+                SuccessfulProbe,
+            ))),
         });
         Arc::new(Mutex::new(manager))
     }
@@ -639,6 +658,14 @@ mod tests {
                     ("client_secret", "byo-secret"),
                     ("resource", SHEETS),
                 ]),
+                // Post-login verification and the explicit refresh both refresh the immediately due grant.
+                pairs(&[
+                    ("grant_type", "refresh_token"),
+                    ("refresh_token", "google-refresh"),
+                    ("client_id", "byo.apps.googleusercontent.com"),
+                    ("client_secret", "byo-secret"),
+                    ("resource", SHEETS),
+                ]),
             ]
         );
     }
@@ -739,6 +766,15 @@ mod tests {
         assert_eq!(after.0, vec!["fixture".to_string()]);
         assert!(after.1.enabled);
         assert!(after.1.uses_oauth);
+        let views =
+            tokio::task::spawn_blocking(move || manager.lock().unwrap().service_catalog_views())
+                .await
+                .unwrap();
+        let row = views
+            .iter()
+            .find(|row| row.service_id == "fixture")
+            .unwrap();
+        assert_eq!(row.connection_status.as_str(), "connected");
     }
 
     /// The builtin linear integration: `begin_login` removes its skill
@@ -809,6 +845,19 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(after, vec!["-notion/SKILL.md".to_string()]);
+        let views =
+            tokio::task::spawn_blocking(move || manager.lock().unwrap().service_catalog_views())
+                .await
+                .unwrap();
+        let row = views.iter().find(|row| row.service_id == "linear").unwrap();
+        assert_eq!(
+            (
+                row.connection_status.as_str(),
+                row.tool_count,
+                row.verified_at.is_some()
+            ),
+            ("connected", Some(2), true)
+        );
     }
 
     /// Unknown servers and non-OAuth servers error with the TS wording;

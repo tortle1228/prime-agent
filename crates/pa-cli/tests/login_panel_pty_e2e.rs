@@ -212,6 +212,14 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
 struct ScriptedClientAuth;
 
 impl pa_tui::client_auth::ClientAuthCommands for ScriptedClientAuth {
+    fn verify(&self, server: &str, panel: AuthPanelHandle) -> pa_tui::client_auth::AuthFuture {
+        let server = server.to_string();
+        Box::pin(async move {
+            panel.progress("Verifying...");
+            Ok(format!("Connected {server}."))
+        })
+    }
+
     fn login(
         &self,
         server: &str,
@@ -779,7 +787,7 @@ impl MockSupervisor {
                                         "server": "linear",
                                         "label": "Linear",
                                         "connected": false,
-                                        "usesOAuth": true,
+                                        "usesOauth": true,
                                         "authKind": "subscription",
                                         "transport": "http",
                                         "userDeclared": false,

@@ -60,7 +60,7 @@ impl McpServiceRow {
             connectable: !connected,
             login_pending: false,
             uses_oauth: value
-                .get("usesOAuth")
+                .get("usesOauth")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
             source: "catalog".to_string(),
@@ -110,7 +110,7 @@ impl McpServiceRow {
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
             uses_oauth: value
-                .get("usesOAuth")
+                .get("usesOauth")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
             source: value
@@ -221,6 +221,14 @@ impl McpServiceRow {
         self.service_id.as_str()
     }
 
+    /// Pending and connected OAuth rows reuse their stored credential for verification.
+    pub(super) fn wants_verify(&self) -> bool {
+        self.uses_oauth
+            && !self.login_pending
+            && self.connection_ids.len() <= 1
+            && matches!(self.connection_status.as_str(), "pending" | "connected")
+    }
+
     /// The paste-panel decision (TS: a requires-setup token service with
     /// exactly one credential and no installed account).
     pub(super) fn wants_paste(&self) -> bool {
@@ -232,6 +240,13 @@ impl McpServiceRow {
     /// step for rows with an account, `manage` for user-declared
     /// non-OAuth servers, then the connection-state verbs.
     fn action_text(&self) -> &'static str {
+        if self.wants_verify() {
+            return if self.connection_status == "connected" {
+                "re-verify"
+            } else {
+                "verify"
+            };
+        }
         if self.paste_token && self.connection_ids.is_empty() {
             return "paste token";
         }

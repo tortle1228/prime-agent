@@ -212,7 +212,7 @@ impl McpManager {
     }
 
     /// The probe seam (injected in tests; the real handshake in product).
-    fn probe(&self) -> McpEndpointProbe {
+    pub(super) fn probe(&self) -> McpEndpointProbe {
         self.probe_override.clone().unwrap_or_else(|| {
             McpEndpointProbe::new(Arc::new(super::probe::ReqwestMcpProbe::default()))
         })

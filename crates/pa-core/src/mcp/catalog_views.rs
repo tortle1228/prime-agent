@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use super::catalog_schema::{AuthStrategy, McpSetupField, SetupFieldKind, SetupStatus};
-use super::connection_store::{McpConnectionRecord, McpConnectionStatus as RecordStatus};
+use super::connection_store::McpConnectionRecord;
 use super::service_catalog::{DescriptorTransport, McpServiceDescriptor};
 use super::McpServerConfig;
 use crate::auth::types::AuthCredential;
@@ -463,10 +463,7 @@ pub fn mcp_login_eligibility(
             && service.is_none_or(|service| service.service_id == record.service_id)
     });
     let verified_endpoint = match &exact_record {
-        Some(record)
-            if record.status == RecordStatus::Connected
-                && record.verified_at.is_some_and(|at| at > 0) =>
-        {
+        Some(record) if record.verified_at.is_some_and(|at| at > 0) => {
             Some(record.endpoint.clone())
         }
         _ => None,

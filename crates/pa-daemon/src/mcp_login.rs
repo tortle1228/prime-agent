@@ -209,6 +209,19 @@ mod tests {
         }
     }
 
+    struct SuccessfulProbe;
+
+    impl pa_core::mcp::McpEndpointProbeImpl for SuccessfulProbe {
+        fn probe_dyn(
+            &self,
+            _url: &str,
+            token: &str,
+        ) -> futures::future::BoxFuture<'static, Result<usize, &'static str>> {
+            assert_eq!(token, "fixture-access");
+            Box::pin(async { Ok(1) })
+        }
+    }
+
     /// The fixture OAuth server's responses answer through the scripted
     /// transport; the real callback listener catches the redirect.
     #[tokio::test]
@@ -247,10 +260,12 @@ mod tests {
             ),
             get_user_servers: Box::new(move || Some(user_servers.clone())),
             begin_login: None,
-            agent_dir: None,
+            agent_dir: Some(agent.path().to_path_buf()),
             get_catalog_sources: None,
             remote_source: None,
-            probe_override: None,
+            probe_override: Some(pa_core::mcp::McpEndpointProbe::new(Arc::new(
+                SuccessfulProbe,
+            ))),
         });
         let manager = Arc::new(std::sync::Mutex::new(manager));
         // Gating snapshots take the auth-store's blocking lock (the
@@ -330,6 +345,11 @@ mod tests {
         let _ = stream.read_to_end(&mut sink).await;
 
         login.await??;
+        let records: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(
+            agent.path().join("mcp-connections.json"),
+        )?)?;
+        assert_eq!(records["connections"]["fixture"]["status"], "connected");
+        assert_eq!(records["connections"]["fixture"]["toolCount"], 1);
 
         // The authorization surface was captured, never launched.
         assert!(

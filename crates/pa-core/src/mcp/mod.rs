@@ -19,6 +19,7 @@ mod probe;
 mod remote_source;
 mod service_catalog;
 mod url_checks;
+mod verification;
 
 pub use catalog_plugin_views::{McpCredentialView, API_KEY_CREDENTIALS};
 pub use catalog_views::{
@@ -32,6 +33,8 @@ pub use manager_catalog::{
 };
 pub use oauth::{mcp_login, mcp_refresh_token, McpLoginUi, McpOAuthConfig};
 pub use oauth_http::{OAuthHttp, OAuthHttpRequest, OAuthHttpResponse, ReqwestOAuthHttp};
+pub use probe::{McpEndpointProbe, McpEndpointProbeImpl};
+pub use verification::McpVerificationContext;
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -370,8 +373,15 @@ impl McpManager {
         manager
     }
 
-    /// Re-read settings and re-resolve integrations; call after a reload.
+    /// Re-read settings and durable connection records, then re-resolve integrations.
+    ///
+    /// # Panics
+    /// Panics if the connection store mutex is poisoned.
     pub fn refresh(&mut self) {
+        self.connection_store
+            .lock()
+            .expect("MCP connection store lock poisoned")
+            .load();
         self.resolve_integrations();
     }
 

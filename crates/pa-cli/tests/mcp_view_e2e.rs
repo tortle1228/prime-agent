@@ -435,6 +435,51 @@ async fn assert_roster_answers_fast(socket: &Path, dir: &Path) {
     );
 }
 
+#[test]
+fn oauth_verification_routes_from_the_serialized_manager_view() {
+    use pa_core::auth::{AuthCredential, AuthStorage};
+    use pa_core::mcp::{McpManager, McpManagerOptions};
+    use pa_tui::mcp_view::{McpView, McpViewAction};
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut auth = AuthStorage::create(dir.path());
+    auth.set(
+        "mcp:linear",
+        AuthCredential::Oauth {
+            access: "access".to_string(),
+            refresh: None,
+            expires: i64::MAX,
+            account_id: None,
+            endpoint: Some("https://mcp.linear.app/mcp".to_string()),
+            token_endpoint: None,
+            client_id: None,
+            resource: None,
+            issuer: None,
+            audience_mode: None,
+            enterprise_url: None,
+        },
+    );
+    let manager = McpManager::new(McpManagerOptions {
+        auth_storage: auth,
+        get_user_servers: Box::new(|| None),
+        begin_login: None,
+        agent_dir: Some(dir.path().to_path_buf()),
+        get_catalog_sources: None,
+        remote_source: None,
+        probe_override: None,
+    });
+    let data = json!({"services": manager.service_catalog_views()});
+    let mut view = McpView::from_response(&data, 20);
+    view.set_search("linear");
+    assert_eq!(
+        view.handle_key("enter", &pa_tui::keybindings::KeybindingsManager::new()),
+        McpViewAction::Verify {
+            server: "linear".to_string(),
+            label: "Linear".to_string(),
+        },
+    );
+}
+
 /// The TUI surface: the headless client opens `/mcp`, the inline view
 /// renders the catalog, Esc closes it, and Enter dispatches the login.
 #[tokio::test]

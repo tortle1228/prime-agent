@@ -1,0 +1,1 @@
+- Fixed OAuth MCP connections staying at “Needs verification” after login, and made Verify check the saved connection without logging in again.

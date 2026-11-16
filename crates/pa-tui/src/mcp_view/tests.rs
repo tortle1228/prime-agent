@@ -33,14 +33,14 @@ fn catalog_response() -> serde_json::Value {
             {
                 "serviceId": "fixture-echo", "label": "fixture-echo",
                 "connectionStatus": "connected", "connectable": false,
-                "usesOAuth": false, "source": "user",
+                "usesOauth": false, "source": "user",
                 "connectionIds": ["fixture-echo"], "pasteToken": false,
                 "aliases": null
             },
             {
                 "serviceId": "notion", "label": "Notion",
                 "connectionStatus": "connected", "connectable": false,
-                "usesOAuth": true, "source": "catalog",
+                "usesOauth": true, "source": "catalog",
                 "connectionIds": ["notion"], "pasteToken": false,
                 "description": "Notion workflows.", "toolCount": 12,
                 "verifiedAt": 1_790_000_000
@@ -48,7 +48,7 @@ fn catalog_response() -> serde_json::Value {
             {
                 "serviceId": "linear", "label": "Linear",
                 "connectionStatus": "not_connected", "connectable": true,
-                "usesOAuth": true, "source": "catalog", "connectionIds": [],
+                "usesOauth": true, "source": "catalog", "connectionIds": [],
                 "aliases": ["linear-app"], "pasteToken": false,
                 "description": "Search and update Linear issues.",
                 "setupHint": null
@@ -56,7 +56,7 @@ fn catalog_response() -> serde_json::Value {
             {
                 "serviceId": "github", "label": "GitHub",
                 "connectionStatus": "setup_required", "connectable": false,
-                "usesOAuth": false, "source": "catalog", "connectionIds": [],
+                "usesOauth": false, "source": "catalog", "connectionIds": [],
                 "pasteToken": true, "aliases": [],
                 "description": "Inspect repositories.",
                 "setupHint": "paste a GitHub personal access token"
@@ -133,7 +133,7 @@ fn the_frame_height_stays_within_the_viewport_budget() {
                 "serviceId": format!("service-{index}"),
                 "label": format!("Service {index}"),
                 "connectionStatus": "not_connected", "connectable": true,
-                "usesOAuth": true, "source": "catalog",
+                "usesOauth": true, "source": "catalog",
                 "connectionIds": [], "pasteToken": false,
                 "description": "A catalog service."
             })
@@ -212,7 +212,39 @@ fn pasteable_rows_keep_the_honest_status() {
 }
 
 /// Enter routes by row kind: a pasteable token service opens the paste
-/// flow; every other row runs its login (the re-verify path).
+/// flow; connected OAuth rows verify, and unconnected rows run login.
+
+#[test]
+fn oauth_pending_and_connected_enter_verify_existing_credentials() {
+    for status in ["pending", "connected"] {
+        for (accounts, login_pending, expected) in [
+            (json!([]), false, Some("notion")),
+            (json!(["notion"]), false, Some("notion")),
+            (json!(["notion-work"]), false, Some("notion-work")),
+            (json!(["notion-work", "notion-home"]), false, None),
+            (json!(["notion"]), true, None),
+        ] {
+            let mut data = catalog_response();
+            data["services"][1]["connectionStatus"] = json!(status);
+            data["services"][1]["connectionIds"] = accounts;
+            data["services"][1]["loginPending"] = json!(login_pending);
+            let mut view = McpView::from_response(&data, 19);
+            view.set_search("notion");
+            let action = match expected {
+                Some(server) => McpViewAction::Verify {
+                    server: server.to_string(),
+                    label: "Notion".to_string(),
+                },
+                None => McpViewAction::Select {
+                    server: "notion".to_string(),
+                    label: "Notion".to_string(),
+                },
+            };
+            assert_eq!(view.handle_key("enter", &kb()), action);
+        }
+    }
+}
+
 #[test]
 fn enter_routes_paste_and_connect() {
     let mut view = McpView::from_response(&catalog_response(), 19);
@@ -226,7 +258,7 @@ fn enter_routes_paste_and_connect() {
     view.handle_key("down", &kb());
     assert_eq!(
         view.handle_key("enter", &kb()),
-        McpViewAction::Select {
+        McpViewAction::Verify {
             server: "notion".to_string(),
             label: "Notion".to_string(),
         }
@@ -445,13 +477,13 @@ fn search_scores_match_the_ts_bands() {
             {
                 "serviceId": "linear", "label": "Linear",
                 "connectionStatus": "not_connected", "connectable": true,
-                "usesOAuth": true, "source": "catalog", "connectionIds": [],
+                "usesOauth": true, "source": "catalog", "connectionIds": [],
                 "pasteToken": false, "aliases": [], "description": "linear one"
             },
             {
                 "serviceId": "linear-support", "label": "linear-support",
                 "connectionStatus": "not_connected", "connectable": true,
-                "usesOAuth": true, "source": "catalog", "connectionIds": [],
+                "usesOauth": true, "source": "catalog", "connectionIds": [],
                 "pasteToken": false, "aliases": [], "description": "x"
             }
         ]
