@@ -240,6 +240,7 @@ pub(crate) struct SessionUi {
     pending_queue: Option<crate::queued::QueuedMessages>,
     queue_selection: crate::queued::QueueSelection,
     context: Option<crate::chrome::ContextUsage>,
+    token_totals: crate::chrome::TokenTotals,
     list_rows: Vec<Value>,
     pub(crate) turn_active: bool,
     /// An agent run is in flight (`agent_start` .. `agent_end`): the OSC

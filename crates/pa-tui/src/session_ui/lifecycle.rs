@@ -109,6 +109,7 @@ impl SessionUi {
             pending_queue: None,
             queue_selection: crate::queued::QueueSelection::default(),
             context: None,
+            token_totals: crate::chrome::TokenTotals::default(),
             list_rows: Vec::new(),
             turn_active: false,
             run_open: false,
@@ -493,6 +494,7 @@ impl SessionUi {
         // or compaction settles): the rebuild below re-syncs it into the
         // chrome exactly like the other reconstructed session fields.
         self.context = reconstructed.context_usage;
+        self.token_totals = crate::chrome::TokenTotals::default();
         self.last_assistant_text = last_assistant_text_of(&reconstructed.chat);
         self.pending_queue = Some(reconstructed.queued);
         self.pending_snapshot = Some(reconstructed.chat);
@@ -670,6 +672,8 @@ impl SessionUi {
         view.queue_selected = None;
         view.chrome.chat_name = self.session_display();
         view.chrome.context = self.context;
+        view.chrome.footer.cache_hit_percent = None;
+        self.sync_footer(view);
         // The rebuilt transcript invalidates the announcement row tracking;
         // the goal state itself carries over (seeded at attach).
         self.goal_view.reset_row_tracking();
@@ -768,6 +772,7 @@ impl SessionUi {
         self.context = data
             .get("contextUsage")
             .and_then(crate::chrome::ContextUsage::from_wire);
+        self.token_totals = crate::chrome::TokenTotals::from_stats(&data);
         self.dirty = true;
     }
 

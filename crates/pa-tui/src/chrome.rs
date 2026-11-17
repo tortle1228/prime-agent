@@ -8,6 +8,10 @@ use serde_json::Value;
 
 use crate::theme::{Theme, ThemeBg, ThemeColor};
 
+mod footer;
+pub(crate) use footer::{cache_hit_percent, read_git_branch, render_footer_status};
+pub use footer::{FooterStatus, TokenTotals};
+
 /// The compact 7-row brand butterfly.
 pub const PRIME_COMPACT_BUTTERFLY_LOGO: &str = concat!(
     "                 \u{2597}\u{2584}\u{2584}\u{2588}\u{2580}\n",
@@ -82,6 +86,8 @@ pub struct ChromeState {
     /// The footer's tok/sec readout: the dim bottom row's text; `None`
     /// renders no row (kept until the first completed response).
     pub speed_text: Option<String>,
+    /// The footer status row under the tray (cwd, branch, token totals).
+    pub footer: FooterStatus,
     /// Hide the splash `cwd` line (the scoped agents view keeps its
     /// metadata rows centered against the logo).
     pub splash_hide_cwd: bool,

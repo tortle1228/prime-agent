@@ -853,6 +853,7 @@ impl SessionUi {
         } else {
             self.working_tokens.settle(usage_output);
             self.record_speed_sample(message, view);
+            view.chrome.footer.cache_hit_percent = crate::chrome::cache_hit_percent(message);
         }
         if let Some(text) = blocks.iter().rev().find_map(|block| match block {
             MessageBlock::Text(text) => Some(text.clone()),

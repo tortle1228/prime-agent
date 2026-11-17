@@ -60,7 +60,15 @@ impl SessionUi {
     pub(crate) fn rebuild_tray(&mut self, view: &mut AgentView) {
         view.chrome.context = self.context;
         view.chrome.chat_name = self.session_display();
+        self.sync_footer(view);
         self.dirty = true;
+    }
+
+    /// Re-read the git branch and apply the refreshed token totals to the footer row.
+    pub(crate) fn sync_footer(&self, view: &mut AgentView) {
+        view.chrome.footer.branch =
+            crate::chrome::read_git_branch(std::path::Path::new(&view.chrome.cwd));
+        view.chrome.footer.tokens = self.token_totals;
     }
 
     pub(crate) fn note(&mut self, text: &str, view: &mut AgentView) {
