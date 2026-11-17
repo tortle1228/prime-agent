@@ -99,6 +99,9 @@ pub(crate) struct SessionCore {
     /// (`preparing` at pickup, `committing` at the first row, `running` at the
     /// first assistant frame) and clears it once the turn settles.
     pub(crate) active_action: Option<crate::types::SessionActionActive>,
+    /// An interactive, file-backed, top-level session: its first prompt in an
+    /// unnamed session starts a background title.
+    pub(crate) auto_title: bool,
 }
 
 impl SessionCore {
@@ -154,6 +157,7 @@ impl SessionCore {
             queued_input_suspended: false,
             pending_next_turn: Vec::new(),
             active_action: None,
+            auto_title: false,
         }
     }
 }

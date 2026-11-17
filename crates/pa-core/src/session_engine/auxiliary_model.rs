@@ -77,13 +77,32 @@ pub fn resolve_auxiliary_model(
     if format!("{}/{}", session_model.provider, session_model.id).to_lowercase() == selector {
         return fallback();
     }
-    // The daemon's `allowedModels` pin (rust-only guardrail, no TS
-    // equivalent) covers every pass model: a selector outside the pin
-    // falls back to the session model.
-    if let Some(allowlist) = settings.get_allowed_models() {
-        if !crate::models::model_allowed(&selector, &allowlist) {
+    let Some(resolved) = resolve_model_selector(context, &settings, &selector) else {
+        warn_fallback(&selector, purpose);
+        return fallback();
+    };
+    if let Some(required) = required_context_tokens {
+        if resolved.model.context_window > 0 && resolved.model.context_window < required {
             warn_fallback(&selector, purpose);
             return fallback();
+        }
+    }
+    resolved
+}
+
+/// Resolve a lowercase "provider/model-id" selector to an authenticated
+/// catalog model with its key and headers; `None` when the selector is
+/// outside the `allowedModels` pin, unknown, or has no usable auth.
+pub(crate) fn resolve_model_selector(
+    context: &AuxiliaryModelContext,
+    settings: &crate::settings::SettingsManager,
+    selector: &str,
+) -> Option<ResolvedAuxiliaryModel> {
+    // The daemon's `allowedModels` pin (rust-only guardrail, no TS
+    // equivalent) covers every pass model.
+    if let Some(allowlist) = settings.get_allowed_models() {
+        if !crate::models::model_allowed(selector, &allowlist) {
+            return None;
         }
     }
     // The TS find runs over the authenticated, non-stale catalog
@@ -95,27 +114,13 @@ pub fn resolve_auxiliary_model(
         .get_rlm_searchable_models()
         .into_iter()
         .find(|model| format!("{}/{}", model.provider, model.id).to_lowercase() == selector)
-        .cloned();
-    let Some(model) = model else {
-        warn_fallback(&selector, purpose);
-        return fallback();
-    };
+        .cloned()?;
     let resolved = registry.get_api_key_and_headers(&model, model.headers.as_ref());
-    if !resolved.ok {
-        warn_fallback(&selector, purpose);
-        return fallback();
-    }
-    if let Some(required) = required_context_tokens {
-        if model.context_window > 0 && model.context_window < required {
-            warn_fallback(&selector, purpose);
-            return fallback();
-        }
-    }
-    ResolvedAuxiliaryModel {
+    resolved.ok.then_some(ResolvedAuxiliaryModel {
         model,
         api_key: resolved.api_key,
         headers: resolved.headers,
-    }
+    })
 }
 
 #[cfg(test)]

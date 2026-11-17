@@ -95,6 +95,7 @@ impl Worker {
             "shutdown" => self.handle_shutdown(payload).await,
             "rename" => self.handle_rename("rename", payload),
             "set_session_name" => self.handle_rename("set_session_name", payload),
+            "generate_session_title" => self.handle_generate_session_title(),
             "mark_anthropic_warning_shown" => self.handle_mark_anthropic_warning_shown(),
             "rename_saved_session" => self.handle_rename_saved_session(payload),
             "delete_saved_session" => self.handle_delete_saved_session(payload).await,
@@ -854,6 +855,20 @@ impl Worker {
             .store
             .as_ref()
             .and_then(|store| store.session_name().map(str::to_string));
+        // A generated title applies only to the session and name it was generated for.
+        if let Some(title_for) = payload.get("generatedTitleFor") {
+            let session_id = core.store.as_ref().map(SessionFile::session_id);
+            if title_for.get("sessionId").and_then(Value::as_str) != session_id
+                || title_for.get("name").and_then(Value::as_str) != previous.as_deref()
+            {
+                return response_failure(
+                    None,
+                    command,
+                    "Session changed while its title was generated",
+                    None,
+                );
+            }
+        }
         if let Some(store) = core.store.as_mut() {
             if let Err(error) = store.persist_entry("session_info", json!({ "name": name })) {
                 return response_failure(None, command, &error.to_string(), None);

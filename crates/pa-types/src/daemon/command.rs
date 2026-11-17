@@ -1123,6 +1123,15 @@ pub enum DaemonCommand {
         #[serde(flatten)]
         rest: JsonMap,
     },
+    /// Regenerate the session's title from its first user message through
+    /// the `sessionTitleModel` setting; the new name arrives as `session_info_changed`.
+    GenerateSessionTitle {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        active_session_id: String,
+        #[serde(flatten)]
+        rest: JsonMap,
+    },
     GetRlmMaxDepthStatus {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,

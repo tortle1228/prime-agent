@@ -42,6 +42,7 @@ pub mod runtime_wiring;
 pub mod semantic_edges;
 pub mod session_commands;
 pub mod session_events;
+pub mod session_title;
 pub mod side_question;
 pub mod skills_unavailable_notice;
 pub mod slash_commands;

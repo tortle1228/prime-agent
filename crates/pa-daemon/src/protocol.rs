@@ -138,6 +138,7 @@ pub const KNOWN_COMMAND_TYPES: &[&str] = &[
     "export_html",
     "export_jsonl",
     "set_session_name",
+    "generate_session_title",
     "get_rlm_max_depth_status",
     "set_rlm_max_depth",
     "rename_saved_session",
@@ -854,6 +855,9 @@ pub fn command_active_session_id(command: &DaemonCommand) -> Option<&str> {
         | DaemonCommand::SetSessionName {
             active_session_id, ..
         }
+        | DaemonCommand::GenerateSessionTitle {
+            active_session_id, ..
+        }
         | DaemonCommand::GetRlmMaxDepthStatus {
             active_session_id, ..
         }
@@ -1049,6 +1053,7 @@ pub fn command_type_name(command: &DaemonCommand) -> &'static str {
         DaemonCommand::ExportHtml { .. } => "export_html",
         DaemonCommand::ExportJsonl { .. } => "export_jsonl",
         DaemonCommand::SetSessionName { .. } => "set_session_name",
+        DaemonCommand::GenerateSessionTitle { .. } => "generate_session_title",
         DaemonCommand::GetRlmMaxDepthStatus { .. } => "get_rlm_max_depth_status",
         DaemonCommand::SetRlmMaxDepth { .. } => "set_rlm_max_depth",
         DaemonCommand::RenameSavedSession { .. } => "rename_saved_session",

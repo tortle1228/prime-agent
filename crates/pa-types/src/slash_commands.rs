@@ -49,7 +49,7 @@ const CANONICAL_BUILTIN_SLASH_COMMANDS: &[BuiltinSlashCommand] = &[
     BuiltinSlashCommand { name: "share", description: "Share session as a secret GitHub gist", execution: SlashCommandExecution::Client, argument_hint: None, aliases: &[], takes_argument: false },
     BuiltinSlashCommand { name: "copy", description: "Copy last agent message to clipboard", execution: SlashCommandExecution::Client, argument_hint: None, aliases: &[], takes_argument: false },
     BuiltinSlashCommand { name: "btw", description: "Ask a side question without adding it to the session; replies follow up, esc returns", execution: SlashCommandExecution::Client, argument_hint: Some("<question>"), aliases: &["side"], takes_argument: true },
-    BuiltinSlashCommand { name: "name", description: "Set or show the session display name", execution: SlashCommandExecution::Client, argument_hint: Some("[name]"), aliases: &["rename"], takes_argument: true },
+    BuiltinSlashCommand { name: "name", description: "Set the session display name, or regenerate it when empty", execution: SlashCommandExecution::Client, argument_hint: Some("[name]"), aliases: &["rename"], takes_argument: true },
     BuiltinSlashCommand { name: "session", description: "Show session info", execution: SlashCommandExecution::Client, argument_hint: None, aliases: &[], takes_argument: false },
     BuiltinSlashCommand { name: "system-prompt", description: "Show the exact system prompt sent to the model", execution: SlashCommandExecution::Client, argument_hint: None, aliases: &[], takes_argument: false },
     BuiltinSlashCommand { name: "logs", description: "Show where daemon and client logs are saved", execution: SlashCommandExecution::Client, argument_hint: None, aliases: &[], takes_argument: false },

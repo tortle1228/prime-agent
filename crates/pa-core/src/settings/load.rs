@@ -16,6 +16,7 @@ const KNOWN_FIELDS: &[&str] = &[
     "updateChannel",
     "recentModels",
     "auxiliaryModel",
+    "sessionTitleModel",
     "defaultThinkingLevel",
     "defaultServiceTier",
     "rlmMaxDepth",
