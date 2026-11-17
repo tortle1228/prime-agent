@@ -598,6 +598,16 @@ impl SettingsManager {
         self.merged.auxiliary_model.as_deref()
     }
 
+    /// The session-title model selector; a blank value behaves as unset.
+    #[must_use]
+    pub fn get_session_title_model(&self) -> Option<&str> {
+        self.merged
+            .session_title_model
+            .as_deref()
+            .map(str::trim)
+            .filter(|selector| !selector.is_empty())
+    }
+
     /// The "provider/model-id" (or bare id) reference serving image turns on models
     /// without image input; malformed values behave as unset and the refusal names the setting.
     #[must_use]

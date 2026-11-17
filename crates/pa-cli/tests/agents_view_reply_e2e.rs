@@ -172,13 +172,14 @@ fn faux_engine_config(dir: &Path, responses: &[&str]) -> serde_json::Value {
         .to_string(),
     )
     .expect("write faux script");
-    serde_json::json!({ "script": script.to_string_lossy() })
+    serde_json::json!({ "script": script.to_string_lossy(), "cwd": "/tmp" })
 }
 
 fn view_options(socket: &Path, session_dir: &Path, config: serde_json::Value) -> AgentsViewOptions {
     AgentsViewOptions {
         socket_path: socket.to_path_buf(),
-        cwd: std::env::temp_dir(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.to_path_buf()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),

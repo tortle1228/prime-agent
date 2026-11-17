@@ -3064,8 +3064,8 @@ async fn tui_renames_session_through_slash_command() {
         "the /rename status row rendered:\n{rendered}"
     );
     assert!(
-        rendered.contains("Session name: my session"),
-        "the /name report row rendered:\n{rendered}"
+        rendered.contains("Set sessionTitleModel in settings.json"),
+        "the bare /name asks for a title model when none is set:\n{rendered}"
     );
     // The session file carries the `session_info` entry with the name.
     let mut saw_name = false;

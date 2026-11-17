@@ -100,6 +100,59 @@ fn new_key_in_a_scoped_view_creates_under_the_scope_root() {
     );
 }
 
+/// The `app.agents.scope` key (default tab): the list opens on the launch folder's families (a
+/// subagent follows its root whatever its own cwd), tab flips to every folder and back, and each
+/// flip re-arms the first saved-catalog page.
+#[test]
+fn scope_key_toggles_between_this_folder_and_all_folders() {
+    let mut here = parent_summary("p");
+    here["cwd"] = serde_json::json!("/tmp");
+    let mut child = child_summary("c", "p", "worker one");
+    child["cwd"] = serde_json::json!("/elsewhere");
+    let mut other = parent_summary("q");
+    other["cwd"] = serde_json::json!("/other");
+    let mut mode = mode_with_anchor(
+        None,
+        vec![
+            roster_entry("p", "idle", &here),
+            roster_entry("c", "running", &child),
+            roster_entry("q", "idle", &other),
+        ],
+    );
+    mode.folder_scope = FolderScope::Current;
+    mode.rebuild_rows();
+    let listed = |mode: &AgentsViewMode| -> Vec<(RowKind, String)> {
+        mode.rows
+            .iter()
+            .map(|row| (row.kind, row.title.clone()))
+            .collect()
+    };
+    let this_folder = vec![
+        (RowKind::Agent, "p name".to_string()),
+        (RowKind::SubagentSummary, mode.rows[1].title.clone()),
+    ];
+    assert_eq!(listed(&mode), this_folder);
+    assert!(flat(&mode.render_hints(200, None)).ends_with("Tab all folders"));
+    mode.handle_key("tab");
+    assert_eq!(
+        listed(&mode)
+            .into_iter()
+            .filter(|(kind, _)| *kind == RowKind::Agent)
+            .collect::<Vec<_>>(),
+        vec![
+            (RowKind::Agent, "p name".to_string()),
+            (RowKind::Agent, "q name".to_string()),
+        ]
+    );
+    assert!(flat(&mode.render_hints(200, None)).ends_with("Tab this folder"));
+    assert!(
+        mode.take_saved_fetch_rearm(),
+        "the flip re-fetches the first page"
+    );
+    mode.handle_key("tab");
+    assert_eq!(listed(&mode), this_folder);
+}
+
 /// The `app.agents.program` key (default ctrl+o): the parent expands its list with the
 /// program's capped, padded rows; the code rows never take the selection.
 #[test]

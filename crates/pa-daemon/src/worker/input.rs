@@ -109,6 +109,17 @@ impl Worker {
                     }
                 }
             };
+            // The first user prompt of an unnamed interactive session names it.
+            let first_prompt = core.auto_title
+                && custom_message.is_none()
+                && !message.trim().is_empty()
+                && !core.has_ongoing_work()
+                && core.store.as_ref().is_some_and(|store| {
+                    store.session_name().is_none() && store.first_message().is_none()
+                });
+            if first_prompt {
+                self.spawn_session_title(&core, message.to_string());
+            }
             // This RPC command is human-origin only for a plain user row.
             // Caller-supplied custom rows never gain human priority.
             let item = QueuedItem {

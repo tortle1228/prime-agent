@@ -765,9 +765,21 @@ impl SessionUi {
             "name" => {
                 let name = resolved.args.trim();
                 if name.is_empty() {
-                    match &self.session_name {
-                        Some(current) => self.note(&format!("Session name: {current}"), view),
-                        None => self.note_as("Usage: /name <name>", StatusKind::Warning, view),
+                    match self
+                        .bounded_request(
+                            Duration::from_millis(UI_REQUEST_TIMEOUT_MS),
+                            DaemonCommand::GenerateSessionTitle {
+                                id: None,
+                                active_session_id: self.active_session_id.clone(),
+                                rest: Map::default(),
+                            },
+                        )
+                        .await
+                    {
+                        Ok(_) => self.note("Generating a session title…", view),
+                        Err(error) => {
+                            self.note_as(&format!("{error:#}"), StatusKind::Warning, view);
+                        }
                     }
                     return Ok(());
                 }

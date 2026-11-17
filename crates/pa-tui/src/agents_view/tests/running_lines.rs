@@ -132,6 +132,7 @@ fn mode_with_mixed_children() -> AgentsViewMode {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = vec![
         roster_entry("p", "idle", &parent_summary("p")),
         roster_entry("r1", "running", &child_summary("r1", "p", "runner one")),

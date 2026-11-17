@@ -300,6 +300,9 @@ pub struct Settings {
     pub update_channel: Option<UpdateChannel>,
     pub recent_models: Option<Vec<String>>,
     pub auxiliary_model: Option<String>,
+    /// The "provider/model-id" model that names unnamed interactive sessions
+    /// from their first message; unset turns automatic titles off.
+    pub session_title_model: Option<String>,
     pub default_thinking_level: Option<ThinkingLevelSetting>,
     pub default_service_tier: Option<String>,
     pub rlm_max_depth: Option<u64>,

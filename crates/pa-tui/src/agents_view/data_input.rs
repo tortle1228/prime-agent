@@ -2,11 +2,12 @@
 //! reconciled roster+catalog with the query filter), the roster update apply, the saved-catalog
 //! stream reconcile, and the selection/key/mouse dispatch residue.
 use super::{
-    build_rows, compute_rollups, filter_empty_sessions, filter_unified_sessions,
-    parse_search_query, reconcile_unified_sessions, resolve_selection, scope_ancestors, scope_root,
-    scope_to_subtree, subtree_contains, AgentsViewMode, AgentsViewRow, AgentsViewScope, Composer,
-    OpenedRow, PathBuf, PressedMouseClick, RowKind, SavedMore, ScopeRoot, SelectionEdge,
-    SelectionKey, SessionSelection, Value, ANCHOR_LOADING_HINT, SAVED_CATALOG_PAGE_FILES,
+    build_rows, compute_rollups, filter_empty_sessions, filter_folder_sessions,
+    filter_unified_sessions, parse_search_query, reconcile_unified_sessions, resolve_selection,
+    scope_ancestors, scope_root, scope_to_subtree, subtree_contains, AgentsViewMode, AgentsViewRow,
+    AgentsViewScope, Composer, FolderScope, OpenedRow, PathBuf, PressedMouseClick, RowKind,
+    SavedMore, ScopeRoot, SelectionEdge, SelectionKey, SessionSelection, Value,
+    ANCHOR_LOADING_HINT, SAVED_CATALOG_PAGE_FILES,
 };
 
 impl AgentsViewMode {
@@ -43,12 +44,8 @@ impl AgentsViewMode {
             _ => None,
         };
         self.scope_active = scope_active;
-        let working: &[_] = match &scoped {
-            Some(scoped) => scoped,
-            None => &records,
-        };
-        // The empty-catalog filter preserves the anchor and the scope root; the search filter
-        // keeps ancestors so a match never orphans its parent row.
+        // The anchor and the scope root survive the folder and empty-catalog filters; the search
+        // filter keeps ancestors so a match never orphans its parent row.
         let mut preserved = Vec::new();
         if let Some(anchor) = self.options.anchor_session_id.as_deref() {
             preserved.push(anchor);
@@ -58,6 +55,19 @@ impl AgentsViewMode {
                 preserved.push(session);
             }
         }
+        let in_folder;
+        let working: &[_] = match (&scoped, self.folder_scope) {
+            (Some(scoped), FolderScope::Current | FolderScope::All) => scoped,
+            (None, FolderScope::Current) => {
+                in_folder = filter_folder_sessions(
+                    &records,
+                    &self.options.cwd.to_string_lossy(),
+                    &preserved,
+                );
+                &in_folder
+            }
+            (None, FolderScope::All) => &records,
+        };
         let filtered = filter_empty_sessions(working, &preserved);
         let filtered = if self.query.trim().is_empty() {
             filtered
@@ -606,6 +616,22 @@ impl AgentsViewMode {
         // row's target spawn program.
         if !has_query && self.keybindings.matches(key, "app.agents.program") {
             self.cycle_program_for_selected();
+            return;
+        }
+        // `app.agents.scope` (default tab): flip the unscoped list between the launch folder and
+        // every folder, re-fetching the saved catalog from its first page under the new scope.
+        if self.keybindings.matches(key, "app.agents.scope") {
+            if self.options.scope.is_none() {
+                self.folder_scope = match self.folder_scope {
+                    FolderScope::Current => FolderScope::All,
+                    FolderScope::All => FolderScope::Current,
+                };
+                self.saved_more = None;
+                self.saved_page_requested = false;
+                self.saved_catalog_loaded = false;
+                self.saved_query_rearm = true;
+                self.rebuild_rows();
+            }
             return;
         }
         // `app.agents.expand` (default alt+right, search empty): toggle the selected parent's

@@ -216,7 +216,8 @@ async fn search_matches_names_ids_and_cwd_never_transcripts() {
 
     let options = AgentsViewOptions {
         socket_path: supervisor.socket.clone(),
-        cwd: dir.path().to_path_buf(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),
@@ -363,7 +364,8 @@ async fn ranked_hits_sort_by_relevance_then_recency() {
 
     let options = AgentsViewOptions {
         socket_path: supervisor.socket.clone(),
-        cwd: dir.path().to_path_buf(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),

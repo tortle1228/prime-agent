@@ -14,6 +14,7 @@ use env::KillCloseReason;
 mod input;
 mod lifecycle;
 mod refinement;
+mod session_title;
 mod summary;
 
 mod connection;
@@ -327,6 +328,7 @@ impl Worker {
             queued_input_suspended: false,
             pending_next_turn: Vec::new(),
             active_action: None,
+            auto_title: false,
             running_tool_calls: std::collections::HashSet::new(),
             running_admission_ids: std::collections::HashSet::new(),
             tool_use_count: 0,

@@ -30,6 +30,7 @@ fn roster_row(id: &str, name: &str) -> Value {
             "activeSessionId": format!("{id}-live"),
             "sessionFile": format!("/tmp/{id}.jsonl"),
             "runtimeKind": "top-level",
+            "cwd": "/tmp",
             "sessionName": name,
             "messageCount": 2,
             "rlmDepth": 0,

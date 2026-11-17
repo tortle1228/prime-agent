@@ -49,6 +49,7 @@ fn mode_with_row(title: &str, model: &str) -> (AgentsViewMode, usize) {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     let row = |title: &str| AgentsViewRow {
         section: Section::Idle,
         identity: title.to_string(),
@@ -156,6 +157,7 @@ fn mode_with_parent_and_child() -> AgentsViewMode {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = vec![
         roster_entry("p", "idle", &parent_summary("p")),
         roster_entry("c", "running", &child_summary("c", "p", "worker one")),
@@ -185,6 +187,7 @@ fn mode_with_anchor(anchor: Option<&str>, roster: Vec<serde_json::Value>) -> Age
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = roster;
     mode.rebuild_rows();
     mode
@@ -216,6 +219,7 @@ fn scoped_mode(anchor: Option<&str>, roster: Vec<serde_json::Value>) -> AgentsVi
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = roster;
     mode.rebuild_rows();
     mode
@@ -247,6 +251,7 @@ fn mode_with_user_bindings(bindings: &[(&str, &str)]) -> AgentsViewMode {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = vec![
         roster_entry("p", "idle", &parent_summary("p")),
         roster_entry("c", "running", &child_summary("c", "p", "worker one")),
@@ -274,6 +279,7 @@ fn fresh_mode(roster: Vec<serde_json::Value>) -> AgentsViewMode {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = roster;
     mode.rebuild_rows();
     mode

@@ -582,6 +582,9 @@ impl Worker {
                 .or_else(|| core.store.as_ref().and_then(SessionFile::rlm_depth))
                 .unwrap_or(0);
             core.rlm_depth = rlm_depth;
+            core.auto_title = rlm_child_id.is_none()
+                && !no_session
+                && payload.get("executionMode").and_then(Value::as_str) == Some("interactive");
             core.runtime_kind = if rlm_child_id.is_some() {
                 "subagent".to_string()
             } else {

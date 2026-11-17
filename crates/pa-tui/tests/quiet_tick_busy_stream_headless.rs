@@ -209,12 +209,12 @@ fn a_typed_command_burst_submits_as_typed() {
     // The Enter rides with the burst's tail, the typed-ahead submit path.
     steps.push(HeadlessStep::Type("\r".to_string()));
     steps.push(HeadlessStep::WaitRender {
-        needle: "Session name: busy stream session".to_string(),
+        needle: "Generating a session title".to_string(),
         timeout_ms: BARRIER_TIMEOUT_MS,
     });
     let all = run_plan(steps).join("\n");
     assert!(
-        all.contains("Session name: busy stream session"),
+        all.contains("Generating a session title"),
         "the burst's Enter completed a mid-burst dropdown instead of submitting /name:\n{all}"
     );
 }
