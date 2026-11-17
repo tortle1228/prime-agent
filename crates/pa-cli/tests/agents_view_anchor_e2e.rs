@@ -165,7 +165,8 @@ async fn entry_anchor_selects_the_left_session() {
 
     let options = AgentsViewOptions {
         socket_path: supervisor.socket.clone(),
-        cwd: dir.path().to_path_buf(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),
@@ -249,7 +250,8 @@ async fn continue_recent_view_preselects_the_candidate_and_renders_the_notice() 
     );
     let options = AgentsViewOptions {
         socket_path: supervisor.socket.clone(),
-        cwd: dir.path().to_path_buf(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),
@@ -318,7 +320,8 @@ async fn rename_saved_session_renames_the_row_and_the_file() {
 
     let options = AgentsViewOptions {
         socket_path: supervisor.socket.clone(),
-        cwd: dir.path().to_path_buf(),
+        // The fixtures' folder: the view opens on the launch folder's sessions.
+        cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
         theme: "prime".to_string(),
         version: "0.0.0".to_string(),

@@ -66,6 +66,7 @@ impl MockSupervisor {
                             "activeSessionId": "s1-live",
                             "sessionFile": "/tmp/s1.jsonl",
                             "runtimeKind": "top-level",
+                            "cwd": "/tmp",
                             "sessionName": "live one",
                             "messageCount": 2,
                             "rlmDepth": 0,

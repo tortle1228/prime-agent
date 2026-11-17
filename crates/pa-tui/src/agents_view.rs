@@ -19,8 +19,8 @@ use crate::agents_view_forest::{
 };
 use crate::agents_view_state::truncate_text;
 use crate::agents_view_state::{
-    build_layout, filter_empty_sessions, filter_unified_sessions, parse_search_query,
-    reconcile_unified_sessions, section_title, RowLayout, Section,
+    build_layout, filter_empty_sessions, filter_folder_sessions, filter_unified_sessions,
+    parse_search_query, reconcile_unified_sessions, section_title, RowLayout, Section,
 };
 
 /// The scope a scoped view opened on (TS `AgentsViewScopeKey` plus the display name): lists this
@@ -203,6 +203,14 @@ struct SavedMore {
     cursor: String,
 }
 
+/// The folders the unscoped list covers: the launch directory's session families, or every
+/// folder. Every view run starts on `Current`; the scope key flips it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FolderScope {
+    Current,
+    All,
+}
+
 /// The saved catalog a view run holds; the handoff link carries it to the flow's next run.
 #[derive(Default)]
 struct SavedCatalog {
@@ -241,12 +249,14 @@ enum UiInput {
     /// The saved-catalog fetch landed: the Inactive section rebuilds from these rows. A
     /// `continued` fetch (one that resumed a cursor) adds its rows to the catalog.
     SavedLoaded {
+        request_id: String,
         sessions: Vec<Value>,
         more: Option<SavedMore>,
         continued: bool,
     },
     /// The saved-catalog fetch failed; the status line reports it.
     SavedFailed {
+        request_id: String,
         error: String,
     },
     /// One stop-or-delete dispatch landed: the status line reports the outcome in the
@@ -446,8 +456,9 @@ struct AgentsViewMode {
     /// retry.
     saved_fetch_failed: bool,
     incident_notice_state: crate::incident_notices::IncidentNoticeState,
-    /// A failed saved-catalog fetch wants re-arming on the query's next change (the loop owns
-    /// the client, so the mode records the intent).
+    /// The first saved-catalog page wants a fresh fetch: a failed fetch's retry on the query's
+    /// next change, or the scope key's re-fetch (the loop owns the client, so the mode records
+    /// the intent).
     saved_query_rearm: bool,
     /// The streamed rows waiting for the batch window: one rebuild per window makes them appear
     /// progressively — the anchor's row lands long before the scan's final response.
@@ -459,6 +470,9 @@ struct AgentsViewMode {
     /// fetches them.
     saved_more: Option<SavedMore>,
     saved_page_requested: bool,
+    /// The folders the list covers; a scoped view always covers all of them (its subtree already
+    /// narrows the list).
+    folder_scope: FolderScope,
     /// The screen rows of the rendered session rows, in frame order — exactly the rows the last
     /// frame painted (a plain left click opens the row under it). Rebuilt on every render.
     click_rows: Vec<(usize, usize)>,
@@ -533,6 +547,11 @@ impl AgentsViewMode {
             .is_some_and(|anchor| !anchor.is_empty() && Some(anchor) != scope_root);
         // The first run starts fresh; later runs continue the carried state.
         let incident_notice_state = options.incident_notice_state.take().unwrap_or_default();
+        let folder_scope = if options.scope.is_some() {
+            FolderScope::All
+        } else {
+            FolderScope::Current
+        };
         AgentsViewMode {
             options,
             theme,
@@ -576,6 +595,7 @@ impl AgentsViewMode {
             saved_catalog_loaded: false,
             saved_more: None,
             saved_page_requested: false,
+            folder_scope,
             incident_notice_state,
             click_rows: Vec::new(),
             hover_row: None,
@@ -649,12 +669,14 @@ async fn open_roster_link(
 /// The saved-catalog fetch: the result (or failure) re-enters the loop as a `UiInput`, while
 /// the scan's events ride the fetch's request id — the id the loop compares. A terminal
 /// failure re-arms on the next query change. `cursor` resumes a previous page's walk; `limit`
-/// caps the files it folds (`None` walks the rest of the store).
+/// caps the files it folds (`None` walks the rest of the store). `FolderScope::Current` has the
+/// daemon skip rows from other directories.
 fn spawn_saved_catalog_fetch(
     client: &DaemonClient,
     ui_tx: mpsc::UnboundedSender<UiInput>,
     cwd: PathBuf,
     session_dir: Option<PathBuf>,
+    folder_scope: FolderScope,
     cursor: Option<String>,
     limit: Option<u64>,
 ) -> String {
@@ -675,7 +697,10 @@ fn spawn_saved_catalog_fetch(
                     cwd: Some(cwd.to_string_lossy().to_string()),
                     session_dir: session_dir.map(|dir| dir.to_string_lossy().to_string()),
                     active_session_id: None,
-                    scope: Value::Null,
+                    scope: match folder_scope {
+                        FolderScope::Current => Value::from("current"),
+                        FolderScope::All => Value::Null,
+                    },
                     limit,
                     cursor: cursor.clone(),
                     rest: serde_json::Map::default(),
@@ -688,6 +713,7 @@ fn spawn_saved_catalog_fetch(
             Ok(response) if response.success => {
                 let data = response.data.unwrap_or_default();
                 UiInput::SavedLoaded {
+                    request_id,
                     sessions: data
                         .get("sessions")
                         .and_then(Value::as_array)
@@ -707,9 +733,11 @@ fn spawn_saved_catalog_fetch(
                 }
             }
             Ok(response) => UiInput::SavedFailed {
+                request_id,
                 error: response.error.unwrap_or_else(|| "unknown error".into()),
             },
             Err(error) => UiInput::SavedFailed {
+                request_id,
                 error: error.to_string(),
             },
         };
@@ -828,6 +856,7 @@ async fn run_agents_view_surface(
             ui_tx.clone(),
             cwd.clone(),
             session_dir.clone(),
+            mode.folder_scope,
             None,
             Some(SAVED_CATALOG_PAGE_FILES),
         )
@@ -1020,8 +1049,13 @@ async fn run_agents_view_surface(
                 UiInput::KillResult { key, outcome } => {
                     mode.kill_result(&key, outcome);
                 }
+                // A superseded fetch (the scope key re-fetched under the other scope) never applies.
+                UiInput::SavedLoaded { request_id, .. }
+                | UiInput::SavedFailed { request_id, .. }
+                    if catalog_request.as_deref() != Some(request_id.as_str()) => {}
                 // The saved-catalog scan landed: the Inactive section builds now.
                 UiInput::SavedLoaded {
+                    request_id: _,
                     sessions,
                     more,
                     continued,
@@ -1047,7 +1081,10 @@ async fn run_agents_view_surface(
                     mode.rebuild_rows();
                     mode.finish_saved_page(more);
                 }
-                UiInput::SavedFailed { error } => {
+                UiInput::SavedFailed {
+                    request_id: _,
+                    error,
+                } => {
                     // The catalog settled on a terminal failure: the anchor's wait ends with it,
                     // the failure keeps the last good rows, and a late frame must not upsert.
                     mode.drop_saved_stream();
@@ -1287,13 +1324,15 @@ async fn run_agents_view_surface(
             crate::program_status::report(crate::program_status::Status::Idle);
         }
         // A failed saved-catalog fetch re-arms on the next query change or deferred shell open
-        // (a key, a paste, or a click): one honest retry behind a terminal failure.
+        // (a key, a paste, or a click): one honest retry behind a terminal failure. The scope key
+        // re-fetches the first page the same way.
         if mode.take_saved_fetch_rearm() {
             catalog_request = Some(spawn_saved_catalog_fetch(
                 &client,
                 ui_tx.clone(),
                 cwd.clone(),
                 session_dir.clone(),
+                mode.folder_scope,
                 None,
                 Some(SAVED_CATALOG_PAGE_FILES),
             ));
@@ -1312,6 +1351,7 @@ async fn run_agents_view_surface(
                     ui_tx.clone(),
                     cwd.clone(),
                     session_dir.clone(),
+                    mode.folder_scope,
                     Some(cursor),
                     limit,
                 ));

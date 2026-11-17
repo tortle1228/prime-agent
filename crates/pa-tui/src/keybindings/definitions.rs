@@ -392,6 +392,13 @@ pub const APP_KEYBINDINGS: &[(&str, KeybindingDefinition)] = &[
         def!(&["ctrl+r"], "Rename selected agent session"),
     ),
     (
+        "app.agents.scope",
+        def!(
+            &["tab"],
+            "Toggle agents view between this folder and all folders"
+        ),
+    ),
+    (
         "app.agents.expand",
         def!(
             &["alt+right"],

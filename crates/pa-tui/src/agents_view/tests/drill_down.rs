@@ -51,6 +51,7 @@ fn pending_ancestors_expand_and_selection_restores_after_reentry() {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = vec![
         roster_entry("p", "idle", &parent_summary("p")),
         roster_entry("c", "running", &child_summary("c", "p", "worker one")),

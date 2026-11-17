@@ -422,7 +422,8 @@ async fn the_first_agents_view_render_is_clean_behind_hundreds_of_dead_subagents
             "type": "create",
             "sessionPath": parent_file.to_string_lossy(),
             "config": {
-                "cwd": root.to_string_lossy(),
+                // The view's launch folder: the list opens on that folder's sessions.
+                "cwd": "/tmp",
                 "sessionDir": sessions_dir.to_string_lossy(),
                 "provider": "battery",
                 "model": "mock-1",
@@ -596,7 +597,8 @@ async fn a_stopped_session_stays_visible_in_the_view() {
             "type": "create",
             "sessionPath": stopped_file.to_string_lossy(),
             "config": {
-                "cwd": dir.path().to_string_lossy(),
+                // The view's launch folder: the list opens on that folder's sessions.
+                "cwd": "/tmp",
                 "sessionDir": sessions_dir.to_string_lossy(),
                 "provider": "battery",
                 "model": "mock-1",

@@ -36,6 +36,7 @@ fn parent_summary(id: &str) -> Value {
         "activeSessionId": format!("{id}-live"),
         "sessionFile": format!("/tmp/{id}.jsonl"),
         "runtimeKind": "top-level",
+        "cwd": "/tmp",
         "sessionName": format!("{id} name"),
         "messageCount": 2,
         "rlmDepth": 0,

@@ -4,6 +4,25 @@
 
 use super::*;
 
+/// Returning from a session in another folder: the this-folder list keeps the anchor's family,
+/// so the selection lands on it instead of paging the store for a filtered-out row.
+#[test]
+fn the_this_folder_list_keeps_an_anchor_from_another_folder() {
+    let mut here = parent_summary("s1");
+    here["cwd"] = serde_json::json!("/tmp");
+    let mut elsewhere = parent_summary("s2");
+    elsewhere["cwd"] = serde_json::json!("/other");
+    let mut mode = mode_with_anchor(Some("s2"), Vec::new());
+    mode.folder_scope = FolderScope::Current;
+    mode.roster = vec![
+        roster_entry("s1", "idle", &here),
+        roster_entry("s2", "idle", &elsewhere),
+    ];
+    mode.rebuild_rows();
+    assert_eq!(mode.rows[mode.selected].summary["sessionId"], "s2");
+    assert!(!mode.anchor_selection_pending);
+}
+
 #[test]
 fn entry_anchor_selects_the_left_session() {
     let mode = mode_with_anchor(
@@ -291,6 +310,7 @@ fn a_scoped_reopen_expands_a_nested_anchor_outside_the_carried_branch() {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.roster = vec![
         roster_entry("p", "idle", &parent_summary("p")),
         roster_entry("c", "running", &child_summary("c", "p", "worker one")),
@@ -309,7 +329,7 @@ fn returning_mode(
     selected_row_identity: String,
     selected_key: crate::agents_view_forest::SelectionKey,
 ) -> AgentsViewMode {
-    AgentsViewMode::new(AgentsViewOptions {
+    let mut mode = AgentsViewMode::new(AgentsViewOptions {
         socket_path: PathBuf::from("/tmp/agents-view-test.sock"),
         cwd: PathBuf::from("/tmp"),
         session_dir: None,
@@ -326,7 +346,9 @@ fn returning_mode(
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
-    })
+    });
+    mode.folder_scope = FolderScope::All;
+    mode
 }
 
 #[test]

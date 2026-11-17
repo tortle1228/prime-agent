@@ -3,8 +3,8 @@
 //! headless renderer.
 use super::{
     build_layout, mpsc, pad_line, section_title, str_width, truncate_text, AgentsStep,
-    AgentsViewMode, AgentsViewRow, AgentsViewUiMode, Composer, Duration, Line, Result, RowKind,
-    RowLayout, Section, Theme, ThemeColor, UiInput, Value,
+    AgentsViewMode, AgentsViewRow, AgentsViewUiMode, Composer, Duration, FolderScope, Line, Result,
+    RowKind, RowLayout, Section, Theme, ThemeColor, UiInput, Value,
 };
 
 impl AgentsViewMode {
@@ -869,6 +869,15 @@ impl AgentsViewMode {
         }
         if let Some(new) = first("app.agents.new") {
             segments.push(format!("{new} new"));
+        }
+        if self.options.scope.is_none() {
+            if let Some(scope) = first("app.agents.scope") {
+                let word = match self.folder_scope {
+                    FolderScope::Current => "all folders",
+                    FolderScope::All => "this folder",
+                };
+                segments.push(format!("{scope} {word}"));
+            }
         }
         let hints = segments.join("   ");
         truncate_line(&vec![theme.fg(ThemeColor::Muted, hints)], width)

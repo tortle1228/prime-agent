@@ -437,6 +437,69 @@ pub fn filter_empty_sessions(records: &[UnifiedRecord], preserved: &[&str]) -> V
         .collect()
 }
 
+/// Keep the families whose root session runs exactly in `cwd`, plus the families of the
+/// `preserved` sessions (the anchor the view returns to): a subagent follows its root, so the
+/// hierarchy stays whole whatever the child's own directory.
+pub(crate) fn filter_folder_sessions(
+    records: &[UnifiedRecord],
+    cwd: &str,
+    preserved: &[&str],
+) -> Vec<UnifiedRecord> {
+    let by_alias: HashMap<&str, usize> = records
+        .iter()
+        .enumerate()
+        .flat_map(|(index, record)| {
+            record
+                .aliases
+                .iter()
+                .map(move |alias| (alias.as_str(), index))
+        })
+        .collect();
+    let root_of = |index: usize| {
+        let mut root = index;
+        // The step bound stops a malformed parent cycle.
+        for _ in 0..records.len() {
+            match parent_keys(&records[root])
+                .iter()
+                .find_map(|key| by_alias.get(key.as_str()))
+            {
+                Some(&parent) => root = parent,
+                None => break,
+            }
+        }
+        root
+    };
+    let roots: Vec<usize> = (0..records.len()).map(root_of).collect();
+    let preserved_roots: Vec<usize> = records
+        .iter()
+        .enumerate()
+        .filter(|(_, record)| {
+            get_str(&summary_for_record(record), "sessionId")
+                .is_some_and(|id| preserved.contains(&id))
+        })
+        .map(|(index, _)| roots[index])
+        .collect();
+    records
+        .iter()
+        .zip(&roots)
+        .filter(|(_, &root)| {
+            let root_record = &records[root];
+            let root_cwd = root_record
+                .daemon
+                .as_ref()
+                .and_then(|daemon| get_str(daemon, "cwd"))
+                .or_else(|| {
+                    root_record
+                        .saved
+                        .as_ref()
+                        .and_then(|saved| get_str(saved, "cwd"))
+                });
+            root_cwd == Some(cwd) || preserved_roots.contains(&root)
+        })
+        .map(|(record, _)| record.clone())
+        .collect()
+}
+
 pub use crate::agents_view_search::{parse_search_query, ParsedSearchQuery, SessionSearchText};
 
 /// The keys by which a record's parent is referenced.

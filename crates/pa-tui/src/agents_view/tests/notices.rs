@@ -23,6 +23,7 @@ fn mode_with_notice(notice: &str) -> AgentsViewMode {
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     });
+    mode.folder_scope = FolderScope::All;
     mode.rebuild_rows();
     mode
 }
